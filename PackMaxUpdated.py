@@ -10,7 +10,7 @@ irange = 16
 ##BEGIN RELEVANT ARRAYS
 A = np.zeros([prange, 6])
 T = np.zeros([irange, 5])
-F = np.array([1, 4, 5, 2, 3, 4, 5, 6, 1, 1, 1, 3, 4, 3, 2, 2])        #default values, will modify for user input later
+F = np.array([1, 4, 5, 2, 3, 4, 5, 6, 1, 1, 1, 3, 4, 3, 2, 2])        #default values
 ##END RELEVANT ARRAYS
 
 
@@ -30,7 +30,7 @@ for p in range(len(products) - 2):
         A[p][4] = int(products[p + 2][10])
     else:
         A[p][4] = int(products[p + 2][9])
-    A[p][5] = 4 #default value, will modify for user input later
+    A[p][5] = 4 #default value
 prod.close()
 
 #trucks
@@ -47,7 +47,7 @@ for i in range(len(trucks) - 1):
     else:
         T[i][2] = int(round(3.048*8))
     T[i][3] = int(round(1000*float(trucks[i + 1][4][:-3])))
-    T[i][4] = 2 #default value, will modift for user input later
+    T[i][4] = 2 #default value
 truck.close()
 ##END INITIALIZE A, T FROM CSV FILES
 
@@ -96,7 +96,16 @@ def displayM(M):
             for j in range(int(T[i][4])):
                 print(p, i, j, M[p][i][j])
         print()
-        
+
+def numconserve(M):
+    numbers = []
+    for p in range(prange):
+        res = 0
+        for i in range(irange):
+            for j in range(int(T[i][4])):
+                res += M[p][i][j]
+        numbers += [res]
+    return(numbers)
 ##END AUXILIARY FUNCTIONS
 
 
@@ -109,6 +118,7 @@ for p in range(prange):
             C[temp_rank][p][i][j] = 1
     B[temp_rank] = A[p][5]
     temp_rank += 1
+eq_cons = temp_rank
 
 #NOT EXCEEDING TONNAGE
 for i in range(irange):
@@ -117,6 +127,7 @@ for i in range(irange):
             C[temp_rank][p][i][j] = A[p][3]*A[p][4]
         B[temp_rank] = T[i][3]
         temp_rank += 1
+ton_cons = temp_rank 
 
 maxd, maxw, maxh = 0, 0, 0 
 for p in range(prange):
@@ -133,6 +144,8 @@ for i in range(irange):
         for p in range(prange):
             C[temp_rank][p][i][j] = maxd*maxw*maxh
         B[temp_rank] = T[i][0]*T[i][1]*T[i][2]
+        temp_rank += 1
+pack_cons = temp_rank
 
 #NONNEGATIVITY
 for i in range(irange):
@@ -145,6 +158,103 @@ for i in range(irange):
 
 
 ##BEGIN SOLVER
+def eta(M):
+    eta = np.zeros([prange])
+    for p in range(prange):
+        wav = 0
+        sos = 0
+        for i in range(irange):
+            for j in range(int(T[i][4])):
+                wav += C[p][p][i][j]*M[p][i][j]                                    
+                sos += C[p][p][i][j]**2
+        eta[p] = (wav - B[p])/sos
+    return(eta)
+
+def projeq(M):
+    '''projects onto the equality constraints'''
+    for p in range(prange):
+        for i in range(irange):
+            for j in range(int(T[i][4])):
+                M[p][i][j] = M[p][i][j] - eta(M)[p]*C[p][p][i][j]
+    return(M)
+
+def etaton(M):
+    eta = []
+    k = 0
+    for i in range(irange):
+        for j in range(int(T[i][4])):
+            wav = 0
+            sos = 0
+            for p in range(prange):
+               wav += C[eq_cons + k][p][i][j]*M[p][i][j]
+               sos += C[eq_cons + k][p][i][j]**2
+            eta += [(wav - B[k])/sos]
+            k += 1
+    return(eta)
+     
+def projton(M):
+    '''projects onto the tonnage constraints'''
+    k = 0
+    for i in range(irange):
+        for j in range(int(T[i][4])):
+            for p in range(prange):
+                M[p][i][j] = M[p][i][j] - etaton(M)[k]*C[eq_cons + k][p][i][j]
+            k += 1
+    return(M)
+
+def etapack(M):
+    eta = []
+    k = 0
+    for i in range(irange):
+        for j in range(int(T[i][4])):
+            wav = 0
+            sos = 0
+            for p in range(prange):
+               wav += C[ton_cons + k][p][i][j]*M[p][i][j]
+               sos += C[ton_cons + k][p][i][j]**2
+            eta += [(wav - B[k])/sos]
+            k += 1
+    return(eta)
+    
+def projpack(M):
+    '''projects onto the packability constraints'''
+    k = 0
+    for i in range(irange):
+        for j in range(int(T[i][4])):
+            for p in range(prange):
+                M[p][i][j] = M[p][i][j] - etaton(M)[k]*C[ton_cons + k][p][i][j]
+            k += 1
+    return(M)
+
+def etanon(M):
+    eta = []
+    k = 0
+    for i in range(irange):
+        for j in range(int(T[i][4])):
+            for p in range(prange):
+                if M[p][i][j] < 0:
+                    eta += [-M[p][i][j]]
+                else:
+                    eta += [0]
+                k += 1
+    return(eta)
+    
+def projnon(M):
+    '''projects onto the nonnegativity constraints'''
+    k = 0
+    for i in range(irange):
+        for j in range(int(T[i][4])):
+            for p in range(prange):
+                M[p][i][j] -= etanon(M)[k]*C[pack_cons + k][p][i][j]
+                k += 1
+    return(M)
+
+def project(M, k):
+    if k == 0:
+        return(M)
+    else:
+        return projeq(projnon(projpack(projton(project(M, k - 1)))))
+    
 for i in range(irange):
     for j in range(int(T[i][4])):
         for p in range(prange):
@@ -152,23 +262,15 @@ for i in range(irange):
 
 gamma = 0.1
 t = 2
-while gamma > 0.0001:
-    dcom = dot_compare(C, M, B)
-    if dcom:
-        M = np.round(M + gamma*gradM)
-        #M = M + gamma*gradM
-    else:
-        M = np.round(M - gamma*gradM)
-        #M = M - gamma*gradM
-    t += 1
-    #gamma = gamma*(t/(t + 1))
+M = M - gamma*gradM
+dcom = dot_compare(C, M, B)
+control = dcom or (gamma < 0.005)
+while control == False:
+    M = np.round(project(M - gamma*gradM, 2))
     gamma = 1/t**2
-    print(dcom)         #debug
+    t += 1
+    #print(dcom)         #debug
+    dcom = dot_compare(C, M, B)
+    control = dcom or (gamma < 0.005)
 
 ##END SOLVER
-
-
-##BEGIN PACKING EACH TRUCK
-
-
-##END PACKING EACH TRUCK
