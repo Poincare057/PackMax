@@ -261,16 +261,17 @@ for i in range(irange):
             gradM[p][i][j] = r(p, i, j)
 
 gamma = 0.1
-t = 2
-M = M - gamma*gradM
+t = 3
+M = M + gamma*gradM
 dcom = dot_compare(C, M, B)
-control = dcom or (gamma < 0.005)
+control = dcom or (gamma < 0.001)
 while control == False:
-    M = np.round(project(M - gamma*gradM, 2))
+    #M = np.round(project(M - gamma*gradM, 2))
+    M = projnon(projeq(projeq(projnon(projeq(M - gamma*gradM)))))
     gamma = 1/t**2
     t += 1
-    #print(dcom)         #debug
+    print(dcom)         #debug
     dcom = dot_compare(C, M, B)
-    control = dcom or (gamma < 0.005)
-
+    control = dcom or (gamma < 0.001)
+M = np.round(M)
 ##END SOLVER
