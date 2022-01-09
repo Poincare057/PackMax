@@ -269,9 +269,20 @@ while control == False:
     #M = np.round(project(M - gamma*gradM, 2))
     M = projnon(projeq(projeq(projnon(projeq(M - gamma*gradM)))))
     gamma = 1/t**2
+    print(t, gamma)                #To track progress of the solver
     t += 1
-    print(dcom)         #debug
+    #print(dcom)         #debug
     dcom = dot_compare(C, M, B)
     control = dcom or (gamma < 0.001)
 M = np.round(M)
 ##END SOLVER
+
+
+##BEGIN COMMUNICATION
+for i in range(irange):
+    for j in range(int(T[i][4])):
+        for p in range(prange):
+            if M[p][i][j] != 0.0:
+                print("Pack ", int(M[p][i][j]), "of ", products[p + 2][1], " in the ", j, "-th ", trucks[i + 1][0])
+        print()
+##END COMMUNICATION
