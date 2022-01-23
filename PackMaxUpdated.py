@@ -10,7 +10,7 @@ irange = 16
 ##BEGIN RELEVANT ARRAYS
 A = np.zeros([prange, 6])
 T = np.zeros([irange, 5])
-F = np.array([1, 4, 5, 2, 3, 4, 5, 6, 1, 1, 1, 3, 4, 3, 2, 2])        #default values
+F = np.array([1, 4, 5, 2, 3, 4, 5, 6, 1, 1, 1, 3, 4, 3, 2, 2])       #default values
 ##END RELEVANT ARRAYS
 
 
@@ -106,6 +106,14 @@ def numconserve(M):
                 res += M[p][i][j]
         numbers += [res]
     return(numbers)
+
+def objective(M):
+    res = 0
+    for p in range(prange):
+        for i in range(irange):
+            for j in range(int(T[i][4])):
+                res += M[p][i][j]*r(p, i, j)
+    return(res)
 ##END AUXILIARY FUNCTIONS
 
 
@@ -268,7 +276,8 @@ dcom = dot_compare(C, M, B)
 control = dcom or (gamma < gamma_thresh)
 while control == False:
     #M = projnon(projeq(projeq(projnon(projeq(M - gamma*gradM)))))
-    M = project(M, 1)
+    #M = projeq(projnon(project(M - gamma*gradM, 1)))
+    M = project(M - gamma*gradM, 2)
     gamma = 1/t**2
     print(t, gamma)                #To track progress of the solver
     t += 1
