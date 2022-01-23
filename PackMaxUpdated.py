@@ -30,7 +30,7 @@ for p in range(len(products) - 2):
         A[p][4] = int(products[p + 2][10])
     else:
         A[p][4] = int(products[p + 2][9])
-    A[p][5] = 4 #default value
+    A[p][5] = 20 #default value
 prod.close()
 
 #trucks
@@ -261,19 +261,20 @@ for i in range(irange):
             gradM[p][i][j] = r(p, i, j)
 
 gamma = 0.1
+gamma_thresh = 0.007
 t = 3
 M = M + gamma*gradM
 dcom = dot_compare(C, M, B)
-control = dcom or (gamma < 0.001)
+control = dcom or (gamma < gamma_thresh)
 while control == False:
-    #M = np.round(project(M - gamma*gradM, 2))
-    M = projnon(projeq(projeq(projnon(projeq(M - gamma*gradM)))))
+    #M = projnon(projeq(projeq(projnon(projeq(M - gamma*gradM)))))
+    M = project(M, 1)
     gamma = 1/t**2
     print(t, gamma)                #To track progress of the solver
     t += 1
     #print(dcom)         #debug
     dcom = dot_compare(C, M, B)
-    control = dcom or (gamma < 0.001)
+    control = dcom or (gamma < gamma_thresh)
 M = np.round(M)
 ##END SOLVER
 
@@ -283,6 +284,6 @@ for i in range(irange):
     for j in range(int(T[i][4])):
         for p in range(prange):
             if M[p][i][j] != 0.0:
-                print("Pack ", int(M[p][i][j]), "of ", products[p + 2][1], " in the ", j, "-th ", trucks[i + 1][0])
+                print("Pack ", int(M[p][i][j]), "of ", products[p + 2][1], products[p + 2][2], " in the ", j, "-th ", trucks[i + 1][0])
         print()
 ##END COMMUNICATION
